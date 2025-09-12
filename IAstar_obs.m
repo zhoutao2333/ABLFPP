@@ -1,11 +1,5 @@
 function path = astar_energypath_final(HeightData,Obstacle_map, startx, starty, endx, endy)
-    %% Theta* 搜索算法（支持非均匀代价地图）
-    %  HeightData - 地形高度矩阵（值越大表示代价越高）
-    %  startx, starty - 起点坐标
-    %  endx, endy - 终点坐标
-
     % ========== 参数设置 ==========
-    % 机器人物理参数
     m = 22;       % 质量 (kg)
     v = 0.35;     % 速度 (m/s)
     Pmax = 72;    % 最大功率 (W)
@@ -19,16 +13,13 @@ function path = astar_energypath_final(HeightData,Obstacle_map, startx, starty, 
     thetaS = atan(us - u);                 % 静摩擦坡度
     thetaM = min(thetaf, thetaS);          % 最大可行坡度
     thetaB = -atan(u);                     % 刹车坡度（下坡）
-    % ========== 初始化 ==========
-    % 8邻域移动方向
     directions = [0 1; 1 0; 0 -1; -1 0; 1 1; -1 -1; 1 -1; -1 1];
     
     % open_list格式: [x, y, f, g, h]
     open_list = [startx, starty, 0, 0, heuristic(startx, starty, endx, endy, HeightData, m, u, thetaM, thetaB),startx, starty];
     closed_list = [];
-    parent_map = containers.Map(); % 存储父节点关系
-    
-    % ========== 主循环 ==========
+    parent_map = containers.Map(); 
+
     while ~isempty(open_list)
         % 选取f值最小的节点
         [~, idx] = min(open_list(:, 3));
@@ -70,13 +61,7 @@ function path = astar_energypath_final(HeightData,Obstacle_map, startx, starty, 
             if ismember([new_x, new_y], closed_list, 'rows')
                 continue;
             end
-            
-            % ===== Theta* 核心优化 =====
-            % 计算两种可能的连接方式
-            % 方式1：通过当前节点连接
             g1 = current(4) + costx(current(1), current(2), new_x, new_y, HeightData, m, u, thetaM, thetaB);
-            % 方式2：通过父节点连接（如果存在父节点）
-
             if isKey(parent_map, sprintf('%d_%d', current(1), current(2)))
                 parent = parent_map(sprintf('%d_%d', current(1), current(2)));
                 [hasLOS, g2] = line_of_sight(Obstacle_map,parent(1), parent(2), new_x, new_y, HeightData, m, u, thetaM, thetaB);
@@ -86,7 +71,6 @@ function path = astar_energypath_final(HeightData,Obstacle_map, startx, starty, 
                     h_new = heuristic(new_x, new_y, endx, endy, HeightData, m, u, thetaM, thetaB);
                     f_new = g2 + h_new;
 
-                    % 检查是否在open_list中
                     existing_idx = find(open_list(:,1) == new_x & open_list(:,2) == new_y);
                     if isempty(existing_idx) || all(g2 < open_list(existing_idx, 4))
                         open_list = [open_list; new_x, new_y, f_new, g2, h_new,parent(1), parent(2)];
@@ -95,7 +79,6 @@ function path = astar_energypath_final(HeightData,Obstacle_map, startx, starty, 
                     continue; % 跳过标准连接
                 end
             end
-            % ===== 标准A*连接 =====
             h_new = heuristic(new_x, new_y, endx, endy, HeightData, m, u, thetaM, thetaB);
             f_new = g1 + h_new;
             
@@ -325,7 +308,6 @@ end
 
 function c = costx(x1, y1, x2, y2, HeightData, m,u, thetaM , thetaB)
     % 计算移动成本，考虑地形高度
-
     dist_xy = sqrt((x2  - x1 )^2 + (y2 - y1)^2);
     dist_h = HeightData(y2, x2)  - HeightData(y1, x1);
     xxxxx = atan(dist_h / dist_xy);
@@ -340,7 +322,6 @@ function c = costx(x1, y1, x2, y2, HeightData, m,u, thetaM , thetaB)
  end
 
 function h = heuristic(x1, y1, x2, y2, HeightData,m,u,thetaM, thetaB)
-    % 启发式函数，使用欧几里得距离
     dist_xy = sqrt((x2  - x1 )^2 + (y2 - y1 )^2);
     dist_h = HeightData(y2, x2)  - HeightData(y1, x1);
     xxxxx = atan(dist_h / dist_xy);

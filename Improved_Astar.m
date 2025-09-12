@@ -1,6 +1,5 @@
 function [path, costA, path_length] = Improved_Astar(HeightData, waypoints)
     N = size(HeightData,1);
-    % ³õÊ¼»¯ FRA* ×´Ì¬
     g = inf(N); 
     parent = zeros(N,N,2);
     Closed = false(N); 

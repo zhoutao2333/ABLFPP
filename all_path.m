@@ -1,4 +1,3 @@
-%% 数据初始化
 HeightData = double(imread('heightmap (8).png'));
 
 

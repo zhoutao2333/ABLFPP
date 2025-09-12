@@ -1,11 +1,11 @@
 function [paths, costs,len] = IAstar_History(HeightData, waypoints)
-    % 使用 FRA* 计算所有点对路径
+    % 使用 IA*-H 计算所有点对路径
     num_points = size(waypoints, 1);
     paths = cell(num_points, num_points);
     costs = zeros(num_points, num_points);
     len = zeros(num_points, num_points);
     N = size(HeightData,1);
-    % 初始化 FRA* 状态
+
     g = inf(N); 
     parent = zeros(N,N,3);
     Closed = false(N); 
@@ -38,12 +38,11 @@ function [paths, costs,len] = IAstar_History(HeightData, waypoints)
                 [path, Open, Closed, g, parent,costA,path_length] = Astar(HeightData, start, goal, g, parent, m, u, thetaM, thetaB);
                 FLAG = true;
             else
-                % 后续：直接调用 FRA* 增量更新
-                [path, Open, Closed, g, parent,costA,path_length] = FRAstar(HeightData, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB);
+                % 后续：直接调用 IA*-H 增量更新
+                [path, Open, Closed, g, parent,costA,path_length] = Astar_HIS(HeightData, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB);
             end
             % 保存结果
             paths{i,j} = path;
-            %paths{j,i} = flipud(path); % 反向路径
             if isempty(path)
                 costs(i,j) = inf;
             else
@@ -54,7 +53,7 @@ function [paths, costs,len] = IAstar_History(HeightData, waypoints)
     end
 end
 
-function [path, Open, Closed, g, parent,costA,path_length] = FRAstar(HeightData, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB)
+function [path, Open, Closed, g, parent,costA,path_length] = Astar_HIS(HeightData, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB)
     % 目标已在 CLOSED，直接结束
     if Closed(goal(1),goal(2))
         path = ReconstructPath(parent, start, goal);

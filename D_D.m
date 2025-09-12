@@ -1,6 +1,5 @@
 function [path, costA, path_length] = D_D(HeightData, waypoints)
     N = size(HeightData,1);
-    % 初始化 FRA* 状态
     g = inf(N); 
     parent = zeros(N,N,2);
     Closed = false(N); 
@@ -52,7 +51,6 @@ function [path, costA, path_length] = D_D(HeightData, waypoints)
             if nb(1)<1 || nb(1)>size(HeightData,1)||nb(2) < 1 || nb(2)>size(HeightData,2), continue; end
             if Closed(nb(1),nb(2)), continue; end
             ng = g(cur(1),cur(2))+cost(cur(1),cur(2),nb(1),nb(2),HeightData);
-            %使用ia* 
             if ng < g(nb(1),nb(2))
                 g(nb(1),nb(2)) = ng;
                 parent(nb(1),nb(2),1:2) = cur;
