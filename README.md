@@ -36,8 +36,8 @@ Test1_obs.m:consider dense row orchard as obstacle, path result in Fig.12.
 
 TSP_Dijkstra: use Dijkstra for multi tasks path planning.
 
-TSP_Dijkstra_Greedy: use Dijkstra for multi tasks path planning, and greedy for tasks schedule planning, the result of Fig.17(c)
+TSP_Dijkstra_Greedy: use Dijkstra for multi tasks path planning, and greedy for tasks schedule planning, the result of Fig.17.
 
-TSP_Zstar_MSD_GWO.m: use Zstar for multi tasks path planning, and MSD_GWO for tasks schedule planning, the result of Fig.17(d)
+TSP_Zstar_MSD_GWO.m: use Zstar for multi tasks path planning, and MSD_GWO for tasks schedule planning, the result of Fig.17.
 
 
