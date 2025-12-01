@@ -1,27 +1,18 @@
+%======= our IA* ======%
+
 function [path, costA, path_length] = Improved_Astar(HeightData, waypoints)
     N = size(HeightData,1);
-    % 初始化 FRA* 状态
     g = inf(N); 
     parent = zeros(N,N,2);
     Closed = false(N); 
     Open = [];
 
-    m = 22;       % 质量 (kg)
-    v = 0.35;     % 速度 (m/s)
-    Pmax = 72;    % 最大功率 (W)
-    u = 0.1;      % 摩擦系数
-    us = 1.0;     % 静摩擦系数
-    num_cu = 0;
+    [m, u, thetaM , thetaB] = parameter(); 
+    % see parameter and eq(10)
+    num_cu = 0; % visited node
+
     start = waypoints(1,:);
-
     goal = waypoints(2,:);
-    
-
-    % 计算坡度限制
-    thetaf = calculateTHm(m, v, Pmax, u);  % 动力限制坡度
-    thetaS = atan(us - u);                 % 静摩擦坡度
-    thetaM = min(thetaf, thetaS);          % 最大可行坡度
-    thetaB = -atan(u);                     % 刹车坡度（下坡）
     Closed = false(size(HeightData));
     Open = [start heuristic(start(1),start(2),goal(1),goal(2),HeightData, m, u, thetaM, thetaB)];
     g(start(1),start(2)) = 0;
@@ -42,6 +33,9 @@ function [path, costA, path_length] = Improved_Astar(HeightData, waypoints)
                     dz = HeightData(path(i,2), path(i,1)) - HeightData(path(i-1,2), path(i-1,1));
                     path_length = path_length + sqrt(dx^2 + dy^2 + dz^2);
             end
+            disp("length: " + path_length);
+            disp("energy: " + costA);
+            disp("num: " + num_cu);            
             return
         end
 
@@ -50,14 +44,14 @@ function [path, costA, path_length] = Improved_Astar(HeightData, waypoints)
             if nb(1)<1 || nb(1)>size(HeightData,1)||nb(2) < 1 || nb(2)>size(HeightData,2), continue; end
             if Closed(nb(1),nb(2)), continue; end
             ng = g(cur(1),cur(2))+costx(cur(1),cur(2),nb(1),nb(2),HeightData, m, u, thetaM, thetaB);
-            %使用ia* 
+            %line of sight
             if ~isequal(cur, start) && any(parent(cur(1), cur(2), :))
                 parent_node = squeeze(parent(cur(1), cur(2), :))';
                 [hasLOS, g2] = line_of_sight(parent_node(1), parent_node(2), nb(1), nb(2), HeightData, m, u, thetaM, thetaB);
                 g2 = g2 + parent_node(3);
 
                 if hasLOS && g2 <= ng
-                    % 选择父节点连接
+                    % choose parent
                     if g2 < g(nb(1), nb(2))
                         g(nb(1), nb(2)) = g2;
                         parent(nb(1), nb(2), 1:2) = parent_node(1:2);
@@ -66,10 +60,9 @@ function [path, costA, path_length] = Improved_Astar(HeightData, waypoints)
                         h_new = heuristic(nb(1), nb(2), goal(1),goal(2), HeightData, m, u, thetaM, thetaB);
                         f_new = g2 + h_new;
 
-                        % 添加到开放列表或更新
                         Open = [Open; nb, f_new];
                     end
-                    continue; % 跳过标准连接
+                    continue; % pass nomal expand
                 end
              end
             if ng < g(nb(1),nb(2))
@@ -88,16 +81,16 @@ function [path, costA, path_length] = Improved_Astar(HeightData, waypoints)
 end
 
 function [hasLOS, totalCost] = line_of_sight(x1, y1, x2, y2, HeightData, m, u, thetaM, thetaB)
-    % 实现完整的通视检测和代价计算（包含水平和垂直方向处理）
+    % line of sight check and cost 
     totalCost = 0;
-    % 初始化参数
+
     dx = abs(x2 - x1);
     dy = abs(y2 - y1);
     s_x = sign(x2 - x1);
     s_y = sign(y2 - y1);
     tx = 2 * dx;
     ty = 2 * dy;
-    % 检查起点和终点是否相同
+
     if dx == 0 && dy == 0
         hasLOS = true;
         return;
@@ -253,7 +246,7 @@ end
 
 
 function c = costx(x1, y1, x2, y2, HeightData, m,u, thetaM , thetaB)
-    % 计算移动成本，考虑地形高度
+%enery as cost
 
     dist_xy = sqrt((x2  - x1 )^2 + (y2 - y1)^2);
     dist_h = HeightData(y2, x2)  - HeightData(y1, x1);
@@ -269,7 +262,7 @@ function c = costx(x1, y1, x2, y2, HeightData, m,u, thetaM , thetaB)
  end
 
 function h = heuristic(x1, y1, x2, y2, HeightData,m,u,thetaM, thetaB)
-    % 启发式函数
+%energy as heuristic
     dist_xy = sqrt((x2 - x1)^2 + (y2 - y1)^2);
     dist_h = HeightData(y2, x2) - HeightData(y1, x1);
     slope = atan(dist_h / dist_xy);

@@ -1,24 +1,16 @@
+%======use A*, Distance as objections======%
 function [path, costA, path_length] = Astar_D(HeightData, waypoints)
     N = size(HeightData,1);
-    % 初始化 FRA* 状态
     g = inf(N); 
     parent = zeros(N,N,2);
     Closed = false(N); 
     Open = [];
-
-    m = 22;       % 质量 (kg)
-    v = 0.35;     % 速度 (m/s)
-    Pmax = 72;    % 最大功率 (W)
-    u = 0.1;      % 摩擦系数
-    us = 1.0;     % 静摩擦系数
-    num_cu = 0;
+    [m, u, thetaM , thetaB] = parameter(); 
+    % see parameter and eq(10)
+    num_cu = 0; % visited node
+    
     start = waypoints(1,:);
     goal = waypoints(2,:);
-    % 计算坡度限制
-    thetaf = calculateTHm(m, v, Pmax, u);  % 动力限制坡度
-    thetaS = atan(us - u);                 % 静摩擦坡度
-    thetaM = min(thetaf, thetaS);          % 最大可行坡度
-    thetaB = -atan(u);                     % 刹车坡度（下坡）
     Closed = false(size(HeightData));
     Open = [start heuristic(start(1),start(2),goal(1),goal(2),HeightData)];
     g(start(1),start(2)) = 0;
@@ -41,6 +33,9 @@ function [path, costA, path_length] = Astar_D(HeightData, waypoints)
                 energy = energy_cost(x1,y1,x2,y2,HeightData,m,u,thetaM,thetaB);  % 单段能耗
                 costA = costA + energy;
             end
+            disp("length：" + path_length + " m")
+            disp("energy：" + costA + " J")
+            disp("num_c：" + num_cu)
             return
         end
 
@@ -66,15 +61,17 @@ end
 
 
 function c = cost(x1, y1, x2, y2, HeightData)
+%distance as cost
     c = sqrt((x2  - x1 )^2 + (y2 - y1)^2 +  (HeightData(y2, x2)  - HeightData(y1, x1))^2);
 end
 
 function h = heuristic(x1, y1, x2, y2, HeightData)
+%distance as heuristic
     h = sqrt((x2  - x1 )^2 + (y2 - y1)^2 +  (HeightData(y2, x2)  - HeightData(y1, x1))^2);
 end
 
 function c = energy_cost(x1, y1, x2, y2, HeightData, m,u, thetaM , thetaB)
-    % 计算移动成本，考虑地形高度
+%enegy cost
     dist_xy = sqrt((x2  - x1 )^2 + (y2 - y1)^2);
     dist_h = abs(HeightData(y2, x2)  - HeightData(y1, x1));
     xxxxx = atan(dist_h / dist_xy);
@@ -88,12 +85,6 @@ function c = energy_cost(x1, y1, x2, y2, HeightData, m,u, thetaM , thetaB)
 
  end
 
-
-function thetam = calculateTHm(m,v,Pmax,u)
-    Fmax = Pmax / v;
-    temp = asin(Fmax / (m * 9.81 * sqrt(u*u + 1)));
-    thetam = temp - atan(u);
-end
 
 function path = ReconstructPath(parent,start,goal)
     path = goal;

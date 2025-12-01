@@ -1,0 +1,375 @@
+%% DQN 带“半径终止 + 评估补终点”的完整示例
+clc
+clear
+
+%% 读入高度图
+HeightData = double(imread('heightmap.png')); % 这里用内置示例，你可以换成自己的 HeightData
+[H, W] = size(HeightData);
+
+% 起点终点（请确保在 HeightData 范围内）
+waypoints = [
+    94,89
+    94,66;  
+];
+startx=waypoints(1,1);starty=waypoints(1,2);
+endx=waypoints(2,1);endy=waypoints(2,2);
+
+%% 物理参数
+m   = 22;
+v   = 0.35;
+Pmax= 72;
+u   = 0.1;
+us  = 1.0;
+g   = 9.81;
+
+thetaf = calculateTHm(m, v, Pmax, u);
+thetaS = atan(us - u);
+thetaM = min(thetaf, thetaS);
+thetaB = -atan(u);
+
+%% 初始化 DQN 网络参数
+hidden_dim = 64;
+params = init_q_params(hidden_dim);  % 随机初始化
+
+gamma = 0.98;       % 折扣因子
+alpha = 5e-4;       % 学习率
+
+epsilon       = 1.0;
+min_epsilon   = 0.05;
+epsilon_decay = 0.997;
+
+num_episodes = 1000;
+max_steps    = 800;
+
+rng(0);  % 固定随机种子
+
+% 训练循环，同时记录成功路径（能耗+长度）
+success_paths      = {};
+success_lengths3d  = [];
+success_energies   = [];
+
+best_success_path  = [];
+best_len3d         = Inf;
+best_energy        = Inf;
+best_steps         = Inf;
+best_ep            = -1;
+
+tic
+for ep = 1:num_episodes
+    state = envReset(HeightData, startx, starty, endx, endy);
+    x = startx;
+    y = starty;
+    total_reward = 0;
+
+    cur_path = [x, y];
+
+    for t = 1:max_steps
+        % -------- epsilon-greedy 选动作 --------
+        if rand < epsilon
+            action = randi(8);
+        else
+            q_vals = q_forward(state, params);
+            [~, action] = max(q_vals);
+        end
+
+        % -------- 环境一步 --------
+        [nextState, reward, done, x_new, y_new] = envStep( ...
+            state, action, HeightData, x, y, ...
+            endx, endy, m, u, thetaM, thetaB);
+
+        total_reward = total_reward + reward;
+
+        % 记录路径（当前位置更新为新点）
+        x = x_new;
+        y = y_new;
+        cur_path = [cur_path; x, y];
+
+        % -------- TD 更新 --------
+        q_vals = q_forward(state, params);   % 当前状态 Q(s,·)
+        q_sa   = q_vals(action);             % Q(s,a)
+
+        q_next = q_forward(nextState, params);
+        max_q_next = max(q_next);
+
+        if done
+            target = reward;
+        else
+            target = reward + gamma * max_q_next;
+        end
+
+        delta = q_sa - target;
+
+        % 反向传播（手写 BP）
+        W1 = params.W1; b1 = params.b1;
+        W2 = params.W2; b2 = params.b2;
+
+        s = state';                      % [4,1]
+        z1 = W1 * s + b1;                % [hidden,1]
+        h  = max(0, z1);                 % ReLU
+        z2 = W2 * h + b2;                % [8,1]
+
+        dL_dz2 = zeros(8,1);
+        dL_dz2(action) = delta;
+
+        dL_dW2 = dL_dz2 * h';
+        dL_db2 = dL_dz2;
+
+        dL_dh  = W2' * dL_dz2;
+        dh_dz1 = double(z1 > 0);
+        dL_dz1 = dL_dh .* dh_dz1;
+
+        dL_dW1 = dL_dz1 * s';
+        dL_db1 = dL_dz1;
+
+        params.W2 = params.W2 - alpha * dL_dW2;
+        params.b2 = params.b2 - alpha * dL_db2;
+        params.W1 = params.W1 - alpha * dL_dW1;
+        params.b1 = params.b1 - alpha * dL_db1;
+
+        state = nextState;
+
+        % =========================
+        %  若成功，补上终点再评估
+        % =========================
+        if done
+            % ---- 关键逻辑：如果最后一点不是精确终点，就补上 (endx, endy) ----
+            if x ~= endx || y ~= endy
+                cur_path = [cur_path; endx, endy];
+            end
+
+            % ===== 计算这条路径的 3D 长度和能耗 =====
+            len3d   = 0;
+            energy  = 0;
+
+            for i = 2:size(cur_path,1)
+                x1 = cur_path(i-1,1); y1 = cur_path(i-1,2);
+                x2 = cur_path(i,1);   y2 = cur_path(i,2);
+
+                dx = x2 - x1;
+                dy = y2 - y1;
+                dz = HeightData(y2, x2) - HeightData(y1, x1);
+                len3d = len3d + sqrt(dx^2 + dy^2 + dz^2);
+
+                c = cost(x1, y1, x2, y2, HeightData, m, u, thetaM, thetaB);
+                if ~isinf(c)
+                    energy = energy + c;
+                else
+                    % 如果补的终点这一步不可行，你可以选择：
+                    % 1）跳过这一步；2）直接将整条能耗设为 Inf；
+                    % 这里简单选择“跳过这一步”的能耗累加
+                end
+            end
+
+            success_paths{end+1}     = cur_path; %#ok<SAGROW>
+            success_lengths3d(end+1) = len3d;   %#ok<SAGROW>
+            success_energies(end+1)  = energy;  %#ok<SAGROW>
+
+            fprintf('Episode %d SUCCESS: steps=%d, len3D=%.2f, energy=%.2f\n', ...
+                    ep, size(cur_path,1), len3d, energy);
+
+            % ===== 用“能耗最低”作为首要优化目标（长度为第二目标） =====
+            if energy < best_energy || (abs(energy - best_energy) < 1e-6 && len3d < best_len3d)
+                best_energy        = energy;
+                best_len3d         = len3d;
+                best_success_path  = cur_path;
+                best_steps         = size(cur_path,1);
+                best_ep            = ep;
+            end
+
+            break;
+        end
+    end
+
+    % 衰减 epsilon
+    epsilon = max(min_epsilon, epsilon * epsilon_decay);
+
+    fprintf('Episode %d, steps=%d, total_reward=%.2f, epsilon=%.3f\n', ...
+            ep, size(cur_path,1), total_reward, epsilon);
+end
+toc
+
+%% 5. 训练结果汇总：按能耗最低选择路径
+if isempty(best_success_path)
+    disp('DQN：训练过程中没有任何成功到达终点附近的 episode，无法选择能耗最优路径。');
+else
+    disp(length(best_success_path))
+    disp(best_success_path)
+    disp('===== DQN 训练结果（从所有成功 episode 中选能耗最低路径） =====');
+    disp("Best episode       : " + best_ep);
+    disp("DQN steps          : " + best_steps);
+    disp("DQN path length 3D : " + best_len3d);
+    disp("DQN total energy   : " + best_energy);
+
+
+    % 可视化
+    figure(1); clf
+    [xgrid, ygrid] = meshgrid(1:W, 1:H);
+    surf(xgrid, ygrid, HeightData), shading interp, colorbar
+    hold on
+
+    % 起点终点
+    plot3(startx, starty, HeightData(starty, startx) + 10,'rp',...
+                           'MarkerEdgeColor','none',...
+                           'MarkerFaceColor','c',...
+                           'MarkerSize',10);
+    plot3(endx,   endy,   HeightData(endy, endx) + 10,'bo',...
+                           'MarkerEdgeColor','none',...
+                           'MarkerFaceColor','b',...
+                           'MarkerSize',10);
+
+    % DQN 路径
+    high_dqn = zeros(size(best_success_path,1),1);
+    for i = 1:size(best_success_path,1)
+        high_dqn(i) = HeightData(best_success_path(i,2), best_success_path(i,1));
+    end
+
+    plot3(best_success_path(:,1), best_success_path(:,2), high_dqn + 8, '-', 'LineWidth', 3);
+
+text(30, 90, HeightData(94,89)+35, num2str("Path Length:"+142.07+"m"), ...
+     'Color', 'black', 'FontAngle' , 'italic' ,'FontSize', 12, ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+text(27, 70, HeightData(94,89)+35, num2str("Enery Cost:"+11721.84+"J"), ...
+     'Color', 'black','FontAngle' , 'italic' , 'FontSize', 12, ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+text(40, 110, HeightData(94,89)+35, num2str("Time Cost:"+5.21+"s"), ...
+     'Color', 'black', 'FontAngle' , 'italic' ,'FontSize', 12, ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 局部函数定义
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function state = envReset(height, startx, starty, goalx, goaly)
+    [H, W] = size(height); %#ok<ASGLU>
+    x = startx;
+    y = starty;
+    state = [x / W, y / H, goalx / W, goaly / H];
+end
+
+function [nextState, reward, done, x_new, y_new] = envStep( ...
+    state, action, height, x, y, goalx, goaly, m, u, thetaM, thetaB)
+
+    [H, W] = size(height);
+
+    % 8 个动作：上下左右 + 四个对角
+    actions = [ 0  -1;   % up
+                0   1;   % down
+               -1   0;   % left
+                1   0;   % right
+               -1  -1;   % up-left
+                1  -1;   % up-right
+               -1   1;   % down-left
+                1   1];  % down-right
+
+    dx = actions(action,1);
+    dy = actions(action,2);
+
+    x2 = x + dx;
+    y2 = y + dy;
+
+    done   = false;
+    reward = 0;
+
+    old_dist_goal = sqrt((x - goalx)^2 + (y - goaly)^2);
+
+    % reward 参数
+    step_penalty      = -0.5;
+    illegal_penalty   = -2.0;
+    shaping_scale     = 2.0;
+    goal_reward_bonus = 50.0;
+    goal_radius       = 3.0;  % 半径终止
+
+    % -------- 边界 & 坡度可行性检查 --------
+    if x2 < 1 || x2 > W || y2 < 1 || y2 > H
+        % 越界：位置不变，惩罚
+        x_new = x;
+        y_new = y;
+        new_dist_goal = old_dist_goal;
+        reward = reward + illegal_penalty;
+    else
+        c = cost(x, y, x2, y2, height, m, u, thetaM, thetaB);
+        if isinf(c)
+            % 坡度不合法：位置不变，惩罚
+            x_new = x;
+            y_new = y;
+            new_dist_goal = old_dist_goal;
+            reward = reward + illegal_penalty;
+        else
+            % 合法移动
+            x_new = x2;
+            y_new = y2;
+            new_dist_goal = sqrt((x_new - goalx)^2 + (y_new - goaly)^2);
+            reward = reward + step_penalty;
+        end
+    end
+
+    % 距离 shaping
+    dist_delta = old_dist_goal - new_dist_goal;
+    reward = reward + shaping_scale * dist_delta;
+
+    % 半径范围内算到达
+    if new_dist_goal < goal_radius
+        reward = reward + goal_reward_bonus;
+        done = true;
+    end
+
+    % 下一个状态
+    nextState = [x_new / W, y_new / H, goalx / W, goaly / H];
+end
+
+function params = init_q_params(hidden_dim)
+    input_dim  = 4;
+    output_dim = 8;
+    params.W1 = 0.01 * randn(hidden_dim, input_dim);
+    params.b1 = zeros(hidden_dim, 1);
+    params.W2 = 0.01 * randn(output_dim, hidden_dim);
+    params.b2 = zeros(output_dim, 1);
+end
+
+function q = q_forward(state, params)
+    if isvector(state)
+        state = state(:)';      % 1x4
+    end
+    W1 = params.W1;
+    b1 = params.b1;
+    W2 = params.W2;
+    b2 = params.b2;
+
+    s = state';
+    z1 = W1 * s + b1;
+    h  = max(0, z1);
+    z2 = W2 * h + b2;
+    q  = z2';
+end
+
+function thetam = calculateTHm(m, v, Pmax, u)
+    Fmax = Pmax / v;
+    temp = asin(Fmax / (m * 9.81 * sqrt(u*u + 1)));
+    thetam = temp - atan(u);
+end
+
+% 物理 + 坡度限制的 cost（可和 A*/RRT* 保持一致）
+function c = cost(x1, y1, x2, y2, HeightData, m, u, thetaM, thetaB)
+    % x1,y1 -> x2,y2 的能量代价
+    dist_xy = sqrt((x2 - x1)^2 + (y2 - y1)^2);
+
+    if dist_xy == 0
+        c = 0;
+        return;
+    end
+
+    dist_h = HeightData(y2, x2) - HeightData(y1, x1);
+    slope  = atan(dist_h / dist_xy);
+
+    if slope > thetaM
+        % 超过最大可行坡度，认为不可行
+        c = Inf;
+    elseif slope > thetaB
+        % 在可行坡度内，用重力 + 摩擦做功估算能耗
+        c = m * 9.81 * sqrt(dist_xy^2 + dist_h^2) * (u * cos(slope) + sin(slope));
+    else
+        % 下坡过陡（小于 thetaB）时可以设为 0 或者加入刹车能耗
+        c = 0;
+    end
+end

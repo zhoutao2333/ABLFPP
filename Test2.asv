@@ -1,0 +1,67 @@
+clc
+clear
+
+%% 数据初始化
+
+% 下载数据
+load  peaks.mat HeightData
+g = 9.8;           % 重力加速度
+mu = 0.1;          % 摩擦系数
+disp(size(HeightData))
+%endx=53;endy=89;endh = HeightData(endy,endx);
+%start=51;endy=10;endh = HeightData(endy,endx);
+% 起点终点网格点 
+waypoints = [
+    51,10
+    74,90
+];
+
+% 最佳路径搜索
+tStart = tic;   % 开始计时
+bestpath = A(HeightData, waypoints);
+
+elapsedTime = toc(tStart);  % 获取耗时
+fprintf('总耗时：%.4f 秒\n', elapsedTime);
+%% 绘制路径
+for i=1:size(bestpath,1)
+    a(i,1)=bestpath(i,1);
+    a(i,2)=bestpath(i,2);
+end
+disp("size" + size(bestpath,1));
+figure(1)
+x=1:100;
+y=1:100;
+[x1,y1]=meshgrid(x,y);
+
+
+
+surf( x1,  y1, HeightData), shading interp, colorbar
+
+hold on
+plot3(a(1,1)', a(1,2)',HeightData(a(1,2),a(1,1)) + 5,'rp','MarkerSize',12,...
+                       'MarkerEdgeColor','none',...
+                       'MarkerFaceColor','c',...
+                       'MarkerSize',10)
+plot3( a(end,1)',a(end,2)',HeightData(a(end,2),a(end,1)) + 5,'bo','MarkerSize',2,...
+                       'MarkerEdgeColor','none',...
+                       'MarkerFaceColor','b',...
+                       'MarkerSize',10)
+%text(10 * a(1,1)',10 * a(1,2)',HeightData(a(1,2),a(1,1)) + 10,'S');
+%text(10 * a(end,1)',10 * a(end,2)',HeightData(a(end,2),a(end,1)) + 10,'T');
+
+%title('Ours','fontsize',12)
+set(gcf, 'Renderer', 'ZBuffer')
+hold on
+for i=1:size(a,1)
+    height(i) = HeightData(a(i,2),a(i,1));
+end
+plot3( a(:,1)',a(:,2)',height+2,'-','LineWidth',3)
+text(76, 45, HeightData(94,89)+30, num2str("Enery Cost:5642.54 J"), ...
+     'Color', 'black','FontAngle' , 'italic' , 'FontSize', 12, ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+text(74, 35, HeightData(94,89)+30, num2str("Path Length:"+"116.90"+"m"), ...
+     'Color', 'black', 'FontAngle' , 'italic' ,'FontSize', 12, ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+text(67, 25, HeightData(94,89)+30, num2str("Time Cost:"+0.07+"s"), ...
+     'Color', 'black', 'FontAngle' , 'italic' ,'FontSize', 12, ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');

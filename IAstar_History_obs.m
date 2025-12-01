@@ -1,5 +1,7 @@
+%== history retain IA*-H with obstacles=====%
+
 function [paths, costs,len] = IAstar_History_obs(HeightData, Obstacle_map, waypoints)
-    % 使用 FRA* 计算所有点对路径
+    % 使用 IA*-H 计算所有点对路径
     num_points = size(waypoints, 1);
     paths = cell(num_points, num_points);
     costs = zeros(num_points, num_points);
@@ -11,18 +13,8 @@ function [paths, costs,len] = IAstar_History_obs(HeightData, Obstacle_map, waypo
     Closed = false(N); 
     Open = [];
 
-    m = 22;       % 质量 (kg)
-    v = 0.35;     % 速度 (m/s)
-    Pmax = 72;    % 最大功率 (W)
-    u = 0.1;      % 摩擦系数
-    us = 1.0;     % 静摩擦系数
+    [m, u, thetaM , thetaB] = parameter(); 
 
-
-    % 计算坡度限制
-    thetaf = calculateTHm(m, v, Pmax, u);  % 动力限制坡度
-    thetaS = atan(us - u);                 % 静摩擦坡度
-    thetaM = min(thetaf, thetaS);          % 最大可行坡度
-    thetaB = -atan(u);                     % 刹车坡度（下坡）
     FLAG = true;
     % ===== 遍历所有点对 =====
     for i = 1:num_points
@@ -38,8 +30,8 @@ function [paths, costs,len] = IAstar_History_obs(HeightData, Obstacle_map, waypo
                 [path, Open, Closed, g, parent,costA,path_length] = Astar(HeightData, Obstacle_map, start, goal, g, parent, m, u, thetaM, thetaB);
                 FLAG = true;
             else
-                % 后续：直接调用 FRA* 增量更新
-                [path, Open, Closed, g, parent,costA,path_length] = FRAstar(HeightData, Obstacle_map, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB);
+                % 后续：直接调用 IA*-H 增量更新
+                [path, Open, Closed, g, parent,costA,path_length] = IAH(HeightData, Obstacle_map, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB);
             end
             % 保存结果
             paths{i,j} = path;
@@ -54,7 +46,7 @@ function [paths, costs,len] = IAstar_History_obs(HeightData, Obstacle_map, waypo
     end
 end
 
-function [path, Open, Closed, g, parent,costA,path_length] = FRAstar(HeightData, Obstacle_map, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB)
+function [path, Open, Closed, g, parent,costA,path_length] = IAH(HeightData, Obstacle_map, start, goal, Open, Closed, g, parent, m, u, thetaM, thetaB)
     if Closed(goal(1),goal(2))
         path = ReconstructPath(parent, start, goal);
         costA = g(goal(1),goal(2));

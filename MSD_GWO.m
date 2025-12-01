@@ -1,21 +1,21 @@
-function [Alpha_pos, Alpha_score] = TSP_GWO(cost_matrix, num_points, N, Max_iter)
+function [Alpha_pos, Alpha_score] = MSD_GWO(cost_matrix, num_points, N, Max_iter)
 % GWO_TSP - 使用灰狼优化算法解决TSP访问顺序优化问题，固定起点为城市1
 % 输入:
 %   cost_matrix - 所有点对之间的路径代价矩阵
 %   num_points - 点的个数
 %   N - 灰狼个体数量
 %   Max_iter - 最大迭代次数
+%   perturbation - 扰动值
 % 输出:
 %   Alpha_pos - 最优解位置（访问顺序的排序位置向量，以1开头）
 %   Alpha_score - 最优路径总代价
-
+    perturbation = 40;
     % 初始化种群，确保每个路径以城市1开头
     Positions = zeros(N, num_points);
     for i = 1:N
-        % 城市1固定为起点，剩余城市随机排列
+        % 城市1固定为起点
         Positions(i, :) = [1, randperm(num_points-1)+1];
     end
-    disp("i am gwo")
 
     Alpha_pos = [];
     Alpha_score = inf;
@@ -24,8 +24,8 @@ function [Alpha_pos, Alpha_score] = TSP_GWO(cost_matrix, num_points, N, Max_iter
     Delta_pos = [];
     Delta_score = inf;
     
-    bandw = ceil(min(N, num_points) * 0.1);
-    bandn = ceil(min(N, num_points) * 0.1);
+    bandw = ceil(min(N, num_points) * 0.24);
+    bandn = ceil(min(N, num_points) * 0.24);
     disp(bandw)
     
     % 迭代计数器
@@ -105,17 +105,14 @@ function [Alpha_pos, Alpha_score] = TSP_GWO(cost_matrix, num_points, N, Max_iter
                     Positions(i,:) = Xd;
             end
     
-            if count == 20
+            if count == perturbation
                 if r3 < 0.5
                     Positions(i,:) = gachange(Alpha_pos, Beta_pos, num_points);
                     Positions(i,:) = swp2(Positions(i,:), 1, num_points);
                 end
             end
-            if count == 60
+            if count == perturbation + 1
                 count = 0;
-            end
-            if Alpha_score < 8.7760
-                break;
             end
         end
         Length_best(l) = Alpha_score;
@@ -305,7 +302,7 @@ function paths = greedy_beam_search_multi(num_points, cost_matrix, beam_width, b
     end
 end
 
-%% 计算路径代价（用于greedy_beam_search_multi）
+%% 计算路径代价
 function cost = path_cost(path, city)
     cost = 0;
     for i = 1:length(path)-1

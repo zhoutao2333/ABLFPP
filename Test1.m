@@ -1,17 +1,17 @@
 clc
 clear
 
-%% 数据初始化
-HeightData = double(imread('heightmap (8).png'));
+% 数据初始化
+HeightData = double(imread('heightmap.png'));
 
 waypoints = [
     94,89;
-    32, 9;  
+    19, 15;  
 ];
 
 
 tic;
-[paths, costs, len] = Astar_E(HeightData, waypoints);
+[paths, costs, len] = D_E(HeightData, waypoints);
 toc;
 disp(num2str(costs))
 disp(len)
@@ -34,7 +34,7 @@ surf(x1, y1, HeightData), shading interp, colorbar
 hold on
 plot3(a(1,1)', a(1,2)',HeightData(a(1,2),a(1,1)) + 10,'rp','MarkerSize',12,...
                        'MarkerEdgeColor','none',...
-                       'MarkerFaceColor','cyan',...
+                       'MarkerFaceColor','c',...
                        'MarkerSize',10)
 plot3(a(end,1)',a(end,2)',HeightData(a(end,2),a(end,1)) + 10,'bo','MarkerSize',12,...
                        'MarkerEdgeColor','none',...

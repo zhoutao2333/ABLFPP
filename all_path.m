@@ -1,33 +1,65 @@
-%% 数据初始化
-HeightData = double(imread('heightmap (8).png'));
+% 显示所有路径
+HeightData = double(imread('heightmap.png'));
 
-
-% 设定多个点 (点1, 2, 3, 4)
 waypoints = [
-    90,91;
-    3, 4;  % 点1
-    54, 87; % 点2
-    14, 84;  % 点3
-    77, 27;   % 点4
-    35,34;
+    101,101;
 
-    42,64;
-    14,47;
-    41,20;
+    100,9;
+    101,28;
+    101,42;
+    102,57;
+    103,71;
+    102,84;
 
-    88,52;
+    85,7;
+    84,20;
+    85,34;
+    83,46;
+    84,60;
+    83,72;
+    85,85;
+    83,95;
 
-    72,50;
-    64,18;
-    35,88;
-    15,24;
-    93,69;
+    71,7;
+    70,20;
+    71,32;
+    69,46;
+    70,60;
+    69,75;
+    70,90;
 
-    5,66;
-    26,15;
-    35,52;
-    63,65;
-    89,21;
+    53,5;
+    55,17;
+    55,32;
+    56,46;
+    55,61;
+    56,76
+    55,92;
+
+    39,5;
+    40,14;
+    41,26;
+    39,40;
+    42,52;
+    40,64;
+    39,77;
+    40,92;
+    
+    25,4;
+    27,18;
+    26,35;
+    26,48;
+    28,64;
+    26,79;
+    27,96;
+
+    10,4;
+    11,18;
+    12,36;
+    12,52;
+    13,65;
+    15,82;
+    13,96;
 ];
 num_points = size(waypoints,1);
 heights = arrayfun(@(i) HeightData(waypoints(i,2), waypoints(i,1)), 1:num_points)';
@@ -65,11 +97,25 @@ for i = 1:num_points
 end
 
 for i = 1:num_points
-    %text(tsp_points(i,1), tsp_points(i,2), points(i,3), num2str(i), 'Color', 'black');
-    plot3(waypoints(i,1), waypoints(i,2), points(i,3)+5, 'o',...
-                       'MarkerEdgeColor','none',...
-                       'MarkerFaceColor','cyan',...
-                       'MarkerSize',10);
+    if i == 1
+        plot3(waypoints(i,1), waypoints(i,2), points(i,3)+5, 'rp',...
+                           'MarkerEdgeColor','none',...
+                           'MarkerFaceColor','r',...
+                           'MarkerSize',10);       
+        % 在第一个点旁边显示编号
+        text(waypoints(i,1), waypoints(i,2), points(i,3)+5, num2str(i), ...
+             'Color', 'blue', 'FontSize', 12, 'FontWeight', 'bold', ...
+             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+    else
+        plot3(waypoints(i,1), waypoints(i,2), points(i,3)+5, 'o',...
+                           'MarkerEdgeColor','none',...
+                           'MarkerFaceColor','cyan',...
+                           'MarkerSize',10);
+        % 在其他点旁边显示编号
+        text(waypoints(i,1), waypoints(i,2)+3, points(i,3)+5, num2str(i), ...
+             'Color', 'blue', 'FontSize', 10, ...
+             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+    end
 end
 
 title('TaskPoints 20');

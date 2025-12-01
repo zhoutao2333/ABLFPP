@@ -1,35 +1,49 @@
 clc
 clear
 
-%% 数据初始化
-HeightData = double(imread('heightmap (8).png'));
+% 数据初始化
+HeightData = double(imread('heightmap.png'));
 
 % 设定多个点 (点1, 2, 3, 4)
 waypoints = [
-    90,91;
-    3, 4;  
-    54, 87; 
-    14, 84;  
-    77, 27;   
+    101,101;
+    100,9;
+    101,32;
+    101,49;
+    99,66;
+    103,83;
 
-    35,34;
-    42,64;
-    14,47;
-    41,20;
-    88,52;
+    80,10;
+    80,29;
+    79,46;
+    80,64;
+    78,83;
 
-    72,50;
-    64,18;
-    35,88;
-    15,24;
-    93,69;
+    60,8;
+    61,23;
+    62,42;
+    62,62;
+    61,90;
 
-    5,66;
-    26,15;
-    35,52;
-    63,65;
-    89,21;
+    42,7;
+    44,25;
+    42,43;
+    43,64;
+    45,87
+
+    25,9;
+    27,44;
+    29,68;
+    30,29;
+    32,87;
+
+    9,10;
+    10,29;
+    11,46;
+    9,70;
+    14,88
 ];
+
 
 
 
@@ -43,25 +57,57 @@ points = [waypoints, heights];
 %% 绘制路径
 
 
+
 tic;
 [paths, costs, len] = IAstar_History(HeightData, waypoints);
 toc;
 
 disp(num2str(costs))
 tic
-[Alpha_pos, Alpha_score] = MSD_GWO(costs, num_points, 50, 100);
+[Alpha_pos, Alpha_score] = MSD_GWO(costs, num_points, 100, 100);
 toc
 
-alpha_len = 0;
-for k = 1:num_points-1
-    alpha_len = alpha_len + len(Alpha_pos(k), Alpha_pos(k+1));
+total_e = 0;
+total_l = 0;
+%% 循环求解每两点间路径
+allpath = [];   % 存放完整路径
+
+tic
+for k = 1:length(Alpha_pos) - 1
+    waypoints_tem = [
+        waypoints(Alpha_pos(k),1), waypoints(Alpha_pos(k),2);
+        waypoints(Alpha_pos(k+1),1), waypoints(Alpha_pos(k+1),2);
+    ];
+    disp(k)
+    disp("起点：" + Alpha_pos(k) + " 终点：" + Alpha_pos(k+1))
+    % 调用A*能量最优路径规划函数
+    [path, costA, path_length] = Improved_Astar(HeightData, waypoints_tem);
+    total_e = total_e + costA;
+    total_l = total_l + path_length;
+    % 拼接路径（避免重复）
+    if k == 1
+        allpath = path;
+    else
+        allpath = [allpath; path(2:end,:)]; % 去掉重复的首点
+    end
 end
 
-alpha_len = alpha_len + len(Alpha_pos(num_points), Alpha_pos(1));
+waypoints_tem = [
+    waypoints(Alpha_pos(length(Alpha_pos)),1), waypoints(Alpha_pos(length(Alpha_pos)),2);
+    waypoints(Alpha_pos(1),1), waypoints(Alpha_pos(1),2);
+];
 
-disp(Alpha_score)
+[path, costA, path_length] = Improved_Astar(HeightData, waypoints_tem);
+total_e = total_e + costA;
+total_l = total_l + path_length;
+allpath = [allpath; path(2:end-1,:)]; % 去掉重复的首点
+toc
+disp("total_e:" + total_e);
+disp("total_l:" + total_l);
+%% 绘制路径
+a = allpath;
+disp("总路径点数: " + size(a,1));
 
-disp(Alpha_pos)
 figure(1)
 x=1:115;
 y=1:115;
@@ -69,38 +115,33 @@ y=1:115;
 surf(x1, y1, HeightData), shading interp, colorbar
 hold on
 
-% 绘制所有路径
-BestSol = Alpha_pos;  % 获取最优解顺序
-for i = 1:num_points-1
-    path = paths{BestSol(i), BestSol(i+1)};
-    if ~isempty(path)
-        height = arrayfun(@(idx) HeightData(path(idx,2), path(idx,1)), 1:size(path,1));
-        plot3(path(:,1), path(:,2), height + 5, '-', 'LineWidth', 2,'Color', 'red');
-    end
+for i=1:size(a,1)
+    high(i) = HeightData(a(i,2),a(i,1));
 end
+plot3(a(:,1)', a(:,2)', high + 3, 'r-', 'LineWidth', 2)
 
 % 标记点
-for i = 1:num_points
-    if i == 1
-        plot3(waypoints(i,1), waypoints(i,2), points(i,3)+5, 'rp',...
-                           'MarkerEdgeColor','none',...
-                           'MarkerFaceColor','r',...
-                           'MarkerSize',10);       
-        % 在第一个点旁边显示编号
-        text(waypoints(i,1), waypoints(i,2), points(i,3)+5, num2str(i), ...
-             'Color', 'blue', 'FontSize', 12, 'FontWeight', 'bold', ...
-             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
-    else
-        plot3(waypoints(i,1), waypoints(i,2), points(i,3)+5, 'o',...
-                           'MarkerEdgeColor','none',...
-                           'MarkerFaceColor','cyan',...
-                           'MarkerSize',10);
-        % 在其他点旁边显示编号
-        text(waypoints(i,1), waypoints(i,2)+3, points(i,3)+5, num2str(i), ...
-             'Color', 'blue', 'FontSize', 10, ...
-             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
-    end
+plot3(waypoints(1,1), waypoints(1,2), points(1,3)+6, 'rp',...
+                   'MarkerEdgeColor','none',...
+                   'MarkerFaceColor','r',...
+                   'MarkerSize',10);       
+% 在第一个点旁边显示编号
+text(waypoints(1,1), waypoints(1,2), points(1,3)+6, "w", ...
+     'Color', 'blue', 'FontSize', 12, 'FontWeight', 'bold', ...
+     'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
+disp(Alpha_pos)
+for i = 2:length(Alpha_pos) - 1
+    plot3(waypoints(Alpha_pos(i),1), waypoints(Alpha_pos(i),2), points(Alpha_pos(i),3)+6, 'o',...
+                       'MarkerEdgeColor','none',...
+                       'MarkerFaceColor','cyan',...
+                       'MarkerSize',10);
+    % 在其他点旁边显示编号
+    text(waypoints(Alpha_pos(i),1), waypoints(Alpha_pos(i),2)+3, points(Alpha_pos(i),3)+6, num2str(i), ...
+         'Color', 'blue', 'FontSize', 10, ...
+         'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
 end
+
+
 
 title('TaskPoints 20');
 hold off;

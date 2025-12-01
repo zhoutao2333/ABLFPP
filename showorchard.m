@@ -2,7 +2,7 @@ clc
 clear
 
 %% 数据初始化
-HeightData = double(imread('heightmap (8).png'));
+HeightData = double(imread('heightmap.png'));
 Obstacle_map = HeightData;
 Obstacle_map(:) = 0;
 
@@ -422,7 +422,7 @@ for i = 1:num_points
                            'MarkerFaceColor','r',...
                            'MarkerSize',10);       
         % 在第一个点旁边显示编号
-        text(waypoints(i,1), waypoints(i,2), points(i,3)+5, num2str(i), ...
+        text(waypoints(i,1), waypoints(i,2), points(i,3)+5, "w", ...
              'Color', 'blue', 'FontSize', 12, 'FontWeight', 'bold', ...
              'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
     else

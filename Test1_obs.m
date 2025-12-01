@@ -2,11 +2,7 @@ clc
 clear
 
 %% 数据初始化
-HeightData = double(imread('heightmap (8).png'));
-
-g = 9.8;           % 重力加速度
-mu = 0.1;          % 摩擦系数
-
+HeightData = double(imread('heightmap.png'));
 
 
 Obstacle_map = HeightData;

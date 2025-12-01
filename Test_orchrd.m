@@ -2,7 +2,7 @@ clc
 clear
 
 %% 数据初始化
-HeightData = double(imread('heightmap (8).png'));
+HeightData = double(imread('heightmap.png'));
 Obstacle_map = HeightData;
 Obstacle_map(:) = 0;
 

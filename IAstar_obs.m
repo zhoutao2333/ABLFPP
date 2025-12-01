@@ -1,24 +1,8 @@
-function path = astar_energypath_final(HeightData,Obstacle_map, startx, starty, endx, endy)
-    %% Theta* 搜索算法（支持非均匀代价地图）
-    %  HeightData - 地形高度矩阵（值越大表示代价越高）
-    %  startx, starty - 起点坐标
-    %  endx, endy - 终点坐标
+%===考虑dense场景的，带有障碍信息的===%
+function path = IAstar_obs(HeightData,Obstacle_map, startx, starty, endx, endy)
 
-    % ========== 参数设置 ==========
-    % 机器人物理参数
-    m = 22;       % 质量 (kg)
-    v = 0.35;     % 速度 (m/s)
-    Pmax = 72;    % 最大功率 (W)
-    u = 0.1;      % 摩擦系数
-    us = 1.0;     % 静摩擦系数
-    g = 9.81;     % 重力加速度
-    num_cu = 0;
-
-    % 计算坡度限制
-    thetaf = calculateTHm(m, v, Pmax, u);  % 动力限制坡度
-    thetaS = atan(us - u);                 % 静摩擦坡度
-    thetaM = min(thetaf, thetaS);          % 最大可行坡度
-    thetaB = -atan(u);                     % 刹车坡度（下坡）
+    % 物理参数
+    [m, u, thetaM , thetaB] = parameter(); 
     % ========== 初始化 ==========
     % 8邻域移动方向
     directions = [0 1; 1 0; 0 -1; -1 0; 1 1; -1 -1; 1 -1; -1 1];
